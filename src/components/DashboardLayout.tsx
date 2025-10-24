@@ -8,7 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { 
   Wallet, Moon, Sun, Bell, User, Settings, LogOut, 
   Home, CreditCard, Briefcase, FileText, Calculator, PieChart, 
-  Target, BarChart3, Menu, X 
+  Target, BarChart3, Menu, X, ChartPie 
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: Target, label: 'Goals', path: '/goals' },
     { icon: Calculator, label: 'Calculators', path: '/calculators' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: BarChart3, label: 'Categories', path: '/categories' },
+    { icon: ChartPie, label: 'Categories', path: '/categories' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
