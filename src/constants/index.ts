@@ -179,7 +179,7 @@ export const AUTO_LOCK_OPTIONS = [5, 10, 15, 30, 60];
 
 // App configuration
 export const APP_CONFIG = {
-  name: 'Arthsathi',
+  name: 'ArthSathi',
   tagline: 'आपका वित्तीय साथी',
   version: '1.0.0',
   defaultCurrency: 'INR',

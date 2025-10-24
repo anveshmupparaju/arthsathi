@@ -1,6 +1,3 @@
-// ============================================
-// FILE: src/lib/firestore.ts
-// ============================================
 import {
   collection,
   doc,
@@ -20,6 +17,9 @@ import { encryptData, decryptData } from './encryption';
 import { Account } from '@/types';
 import { Transaction } from '@/types';
 import { Budget } from '@/types';
+import { Investment } from '@/types';
+import { Goal } from '@/types';
+import { Category } from '@/types';
 
 /**
  * Account Firestore Operations
@@ -989,6 +989,618 @@ export async function getBudgetsWithSpending(
     return budgetsWithSpending;
   } catch (error) {
     console.error('Error getting budgets with spending:', error);
+    throw error;
+  }
+}
+
+/**
+ * Goal Firestore Operations
+ */
+
+// Create a new goal
+export async function createGoal(
+  userId: string,
+  goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
+  encryptionKey: CryptoKey
+): Promise<string> {
+  try {
+    const goalRef = doc(collection(db, 'users', userId, 'goals'));
+    const goalId = goalRef.id;
+
+    // Encrypt sensitive fields
+    const encryptedData = await encryptData(
+      {
+        name: goalData.name,
+        description: goalData.description,
+        linkedAccountIds: goalData.linkedAccountIds,
+      },
+      encryptionKey
+    );
+
+    // Prepare document for Firestore
+    const firestoreDoc = {
+      data: encryptedData,
+      targetAmount: goalData.targetAmount,
+      currentAmount: goalData.currentAmount,
+      targetDate: Timestamp.fromDate(goalData.targetDate),
+      priority: goalData.priority,
+      icon: goalData.icon,
+      color: goalData.color,
+      isCompleted: goalData.isCompleted,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(goalRef, firestoreDoc);
+    return goalId;
+  } catch (error) {
+    console.error('Error creating goal:', error);
+    throw error;
+  }
+}
+
+// Get all goals for a user
+export async function getGoals(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<Goal[]> {
+  try {
+    const goalsRef = collection(db, 'users', userId, 'goals');
+    const q = query(goalsRef, orderBy('targetDate', 'asc'));
+    const snapshot = await getDocs(q);
+
+    const goals: Goal[] = [];
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const decryptedData = await decryptData(data.data, encryptionKey);
+
+      goals.push({
+        id: docSnap.id,
+        userId,
+        name: decryptedData.name,
+        description: decryptedData.description,
+        linkedAccountIds: decryptedData.linkedAccountIds || [],
+        targetAmount: data.targetAmount,
+        currentAmount: data.currentAmount,
+        targetDate: (data.targetDate as Timestamp).toDate(),
+        priority: data.priority,
+        icon: data.icon,
+        color: data.color,
+        isCompleted: data.isCompleted,
+        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      });
+    }
+
+    return goals;
+  } catch (error) {
+    console.error('Error fetching goals:', error);
+    throw error;
+  }
+}
+
+// Update a goal
+export async function updateGoal(
+  userId: string,
+  goalId: string,
+  goalData: Partial<Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>,
+  encryptionKey: CryptoKey
+): Promise<void> {
+  try {
+    const goalRef = doc(db, 'users', userId, 'goals', goalId);
+
+    const encryptedFields: any = {};
+    const unencryptedFields: any = {};
+
+    if (goalData.name !== undefined) encryptedFields.name = goalData.name;
+    if (goalData.description !== undefined) encryptedFields.description = goalData.description;
+    if (goalData.linkedAccountIds !== undefined) encryptedFields.linkedAccountIds = goalData.linkedAccountIds;
+
+    if (goalData.targetAmount !== undefined) unencryptedFields.targetAmount = goalData.targetAmount;
+    if (goalData.currentAmount !== undefined) unencryptedFields.currentAmount = goalData.currentAmount;
+    if (goalData.targetDate !== undefined) unencryptedFields.targetDate = Timestamp.fromDate(goalData.targetDate);
+    if (goalData.priority !== undefined) unencryptedFields.priority = goalData.priority;
+    if (goalData.icon !== undefined) unencryptedFields.icon = goalData.icon;
+    if (goalData.color !== undefined) unencryptedFields.color = goalData.color;
+    if (goalData.isCompleted !== undefined) unencryptedFields.isCompleted = goalData.isCompleted;
+
+    if (Object.keys(encryptedFields).length > 0) {
+      const docSnap = await getDoc(goalRef);
+      if (docSnap.exists()) {
+        const existingData = await decryptData(docSnap.data().data, encryptionKey);
+        const mergedData = { ...existingData, ...encryptedFields };
+        const encryptedData = await encryptData(mergedData, encryptionKey);
+        unencryptedFields.data = encryptedData;
+      }
+    }
+
+    unencryptedFields.updatedAt = serverTimestamp();
+
+    await updateDoc(goalRef, unencryptedFields);
+  } catch (error) {
+    console.error('Error updating goal:', error);
+    throw error;
+  }
+}
+
+// Delete a goal
+export async function deleteGoal(
+  userId: string,
+  goalId: string
+): Promise<void> {
+  try {
+    const goalRef = doc(db, 'users', userId, 'goals', goalId);
+    await deleteDoc(goalRef);
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    throw error;
+  }
+}
+
+/**
+ * Category Firestore Operations
+ */
+
+// Create a new category
+export async function createCategory(
+  userId: string,
+  categoryData: Omit<Category, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
+  encryptionKey: CryptoKey
+): Promise<string> {
+  try {
+    const categoryRef = doc(collection(db, 'users', userId, 'categories'));
+    const categoryId = categoryRef.id;
+
+    // Encrypt sensitive fields
+    const encryptedData = await encryptData(
+      {
+        name: categoryData.name,
+      },
+      encryptionKey
+    );
+
+    // Prepare document for Firestore
+    const firestoreDoc = {
+      data: encryptedData,
+      type: categoryData.type,
+      icon: categoryData.icon,
+      color: categoryData.color,
+      isDefault: false, // Custom categories are never default
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(categoryRef, firestoreDoc);
+    return categoryId;
+  } catch (error) {
+    console.error('Error creating category:', error);
+    throw error;
+  }
+}
+
+// Get all custom categories for a user
+export async function getCategories(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<Category[]> {
+  try {
+    const categoriesRef = collection(db, 'users', userId, 'categories');
+    const q = query(categoriesRef, orderBy('createdAt', 'asc'));
+    const snapshot = await getDocs(q);
+
+    const categories: Category[] = [];
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const decryptedData = await decryptData(data.data, encryptionKey);
+
+      categories.push({
+        id: docSnap.id,
+        userId,
+        name: decryptedData.name,
+        type: data.type,
+        icon: data.icon,
+        color: data.color,
+        isDefault: data.isDefault,
+        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      });
+    }
+
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    throw error;
+  }
+}
+
+// Update a category
+export async function updateCategory(
+  userId: string,
+  categoryId: string,
+  categoryData: Partial<Omit<Category, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>,
+  encryptionKey: CryptoKey
+): Promise<void> {
+  try {
+    const categoryRef = doc(db, 'users', userId, 'categories', categoryId);
+
+    const encryptedFields: any = {};
+    const unencryptedFields: any = {};
+
+    if (categoryData.name !== undefined) encryptedFields.name = categoryData.name;
+
+    if (categoryData.type !== undefined) unencryptedFields.type = categoryData.type;
+    if (categoryData.icon !== undefined) unencryptedFields.icon = categoryData.icon;
+    if (categoryData.color !== undefined) unencryptedFields.color = categoryData.color;
+
+    if (Object.keys(encryptedFields).length > 0) {
+      const docSnap = await getDoc(categoryRef);
+      if (docSnap.exists()) {
+        const existingData = await decryptData(docSnap.data().data, encryptionKey);
+        const mergedData = { ...existingData, ...encryptedFields };
+        const encryptedData = await encryptData(mergedData, encryptionKey);
+        unencryptedFields.data = encryptedData;
+      }
+    }
+
+    unencryptedFields.updatedAt = serverTimestamp();
+
+    await updateDoc(categoryRef, unencryptedFields);
+  } catch (error) {
+    console.error('Error updating category:', error);
+    throw error;
+  }
+}
+
+// Delete a category
+export async function deleteCategory(
+  userId: string,
+  categoryId: string
+): Promise<void> {
+  try {
+    const categoryRef = doc(db, 'users', userId, 'categories', categoryId);
+    await deleteDoc(categoryRef);
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    throw error;
+  }
+}
+
+/**
+ * Investment Firestore Operations
+ */
+
+// Create a new investment
+export async function createInvestment(
+  userId: string,
+  investmentData: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
+  encryptionKey: CryptoKey
+): Promise<string> {
+  try {
+    const investmentRef = doc(collection(db, 'users', userId, 'investments'));
+    const investmentId = investmentRef.id;
+
+    // Encrypt sensitive fields
+    const encryptedData = await encryptData(
+      {
+        name: investmentData.name,
+        schemeCode: investmentData.schemeCode,
+        folioNumber: investmentData.folioNumber,
+        notes: investmentData.notes,
+      },
+      encryptionKey
+    );
+
+    // Prepare document for Firestore
+    const firestoreDoc = {
+      data: encryptedData,
+      investmentType: investmentData.investmentType,
+      accountId: investmentData.accountId || null,
+      units: investmentData.units || null,
+      purchasePrice: investmentData.purchasePrice,
+      currentPrice: investmentData.currentPrice,
+      purchaseDate: Timestamp.fromDate(investmentData.purchaseDate),
+      maturityDate: investmentData.maturityDate ? Timestamp.fromDate(investmentData.maturityDate) : null,
+      interestRate: investmentData.interestRate || null,
+      sipAmount: investmentData.sipAmount || null,
+      sipDate: investmentData.sipDate || null,
+      returns: investmentData.returns,
+      xirr: investmentData.xirr || null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(investmentRef, firestoreDoc);
+    return investmentId;
+  } catch (error) {
+    console.error('Error creating investment:', error);
+    throw error;
+  }
+}
+
+// Get all investments for a user
+export async function getInvestments(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<Investment[]> {
+  try {
+    const investmentsRef = collection(db, 'users', userId, 'investments');
+    const q = query(investmentsRef, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+
+    const investments: Investment[] = [];
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const decryptedData = await decryptData(data.data, encryptionKey);
+
+      investments.push({
+        id: docSnap.id,
+        userId,
+        investmentType: data.investmentType,
+        name: decryptedData.name,
+        schemeCode: decryptedData.schemeCode,
+        folioNumber: decryptedData.folioNumber,
+        accountId: data.accountId,
+        units: data.units,
+        purchasePrice: data.purchasePrice,
+        currentPrice: data.currentPrice,
+        purchaseDate: (data.purchaseDate as Timestamp).toDate(),
+        maturityDate: data.maturityDate ? (data.maturityDate as Timestamp).toDate() : undefined,
+        interestRate: data.interestRate,
+        sipAmount: data.sipAmount,
+        sipDate: data.sipDate,
+        returns: data.returns,
+        xirr: data.xirr,
+        notes: decryptedData.notes,
+        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      });
+    }
+
+    return investments;
+  } catch (error) {
+    console.error('Error fetching investments:', error);
+    throw error;
+  }
+}
+
+// Get a single investment by ID
+export async function getInvestment(
+  userId: string,
+  investmentId: string,
+  encryptionKey: CryptoKey
+): Promise<Investment | null> {
+  try {
+    const investmentRef = doc(db, 'users', userId, 'investments', investmentId);
+    const docSnap = await getDoc(investmentRef);
+
+    if (!docSnap.exists()) {
+      return null;
+    }
+
+    const data = docSnap.data();
+    const decryptedData = await decryptData(data.data, encryptionKey);
+
+    return {
+      id: docSnap.id,
+      userId,
+      investmentType: data.investmentType,
+      name: decryptedData.name,
+      schemeCode: decryptedData.schemeCode,
+      folioNumber: decryptedData.folioNumber,
+      accountId: data.accountId,
+      units: data.units,
+      purchasePrice: data.purchasePrice,
+      currentPrice: data.currentPrice,
+      purchaseDate: (data.purchaseDate as Timestamp).toDate(),
+      maturityDate: data.maturityDate ? (data.maturityDate as Timestamp).toDate() : undefined,
+      interestRate: data.interestRate,
+      sipAmount: data.sipAmount,
+      sipDate: data.sipDate,
+      returns: data.returns,
+      xirr: data.xirr,
+      notes: decryptedData.notes,
+      createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+      updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+    };
+  } catch (error) {
+    console.error('Error fetching investment:', error);
+    throw error;
+  }
+}
+
+// Update an investment
+export async function updateInvestment(
+  userId: string,
+  investmentId: string,
+  investmentData: Partial<Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>,
+  encryptionKey: CryptoKey
+): Promise<void> {
+  try {
+    const investmentRef = doc(db, 'users', userId, 'investments', investmentId);
+
+    const encryptedFields: any = {};
+    const unencryptedFields: any = {};
+
+    if (investmentData.name !== undefined) encryptedFields.name = investmentData.name;
+    if (investmentData.schemeCode !== undefined) encryptedFields.schemeCode = investmentData.schemeCode;
+    if (investmentData.folioNumber !== undefined) encryptedFields.folioNumber = investmentData.folioNumber;
+    if (investmentData.notes !== undefined) encryptedFields.notes = investmentData.notes;
+
+    if (investmentData.investmentType !== undefined) unencryptedFields.investmentType = investmentData.investmentType;
+    if (investmentData.accountId !== undefined) unencryptedFields.accountId = investmentData.accountId;
+    if (investmentData.units !== undefined) unencryptedFields.units = investmentData.units;
+    if (investmentData.purchasePrice !== undefined) unencryptedFields.purchasePrice = investmentData.purchasePrice;
+    if (investmentData.currentPrice !== undefined) unencryptedFields.currentPrice = investmentData.currentPrice;
+    if (investmentData.purchaseDate !== undefined) unencryptedFields.purchaseDate = Timestamp.fromDate(investmentData.purchaseDate);
+    if (investmentData.maturityDate !== undefined) {
+      unencryptedFields.maturityDate = investmentData.maturityDate ? Timestamp.fromDate(investmentData.maturityDate) : null;
+    }
+    if (investmentData.interestRate !== undefined) unencryptedFields.interestRate = investmentData.interestRate;
+    if (investmentData.sipAmount !== undefined) unencryptedFields.sipAmount = investmentData.sipAmount;
+    if (investmentData.sipDate !== undefined) unencryptedFields.sipDate = investmentData.sipDate;
+    if (investmentData.returns !== undefined) unencryptedFields.returns = investmentData.returns;
+    if (investmentData.xirr !== undefined) unencryptedFields.xirr = investmentData.xirr;
+
+    if (Object.keys(encryptedFields).length > 0) {
+      const docSnap = await getDoc(investmentRef);
+      if (docSnap.exists()) {
+        const existingData = await decryptData(docSnap.data().data, encryptionKey);
+        const mergedData = { ...existingData, ...encryptedFields };
+        const encryptedData = await encryptData(mergedData, encryptionKey);
+        unencryptedFields.data = encryptedData;
+      }
+    }
+
+    unencryptedFields.updatedAt = serverTimestamp();
+
+    await updateDoc(investmentRef, unencryptedFields);
+  } catch (error) {
+    console.error('Error updating investment:', error);
+    throw error;
+  }
+}
+
+// Delete an investment
+export async function deleteInvestment(
+  userId: string,
+  investmentId: string
+): Promise<void> {
+  try {
+    const investmentRef = doc(db, 'users', userId, 'investments', investmentId);
+    await deleteDoc(investmentRef);
+  } catch (error) {
+    console.error('Error deleting investment:', error);
+    throw error;
+  }
+}
+
+// Get investments by type
+export async function getInvestmentsByType(
+  userId: string,
+  investmentType: string,
+  encryptionKey: CryptoKey
+): Promise<Investment[]> {
+  try {
+    const investmentsRef = collection(db, 'users', userId, 'investments');
+    const q = query(
+      investmentsRef,
+      where('investmentType', '==', investmentType),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    const investments: Investment[] = [];
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const decryptedData = await decryptData(data.data, encryptionKey);
+
+      investments.push({
+        id: docSnap.id,
+        userId,
+        investmentType: data.investmentType,
+        name: decryptedData.name,
+        schemeCode: decryptedData.schemeCode,
+        folioNumber: decryptedData.folioNumber,
+        accountId: data.accountId,
+        units: data.units,
+        purchasePrice: data.purchasePrice,
+        currentPrice: data.currentPrice,
+        purchaseDate: (data.purchaseDate as Timestamp).toDate(),
+        maturityDate: data.maturityDate ? (data.maturityDate as Timestamp).toDate() : undefined,
+        interestRate: data.interestRate,
+        sipAmount: data.sipAmount,
+        sipDate: data.sipDate,
+        returns: data.returns,
+        xirr: data.xirr,
+        notes: decryptedData.notes,
+        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      });
+    }
+
+    return investments;
+  } catch (error) {
+    console.error('Error fetching investments by type:', error);
+    throw error;
+  }
+}
+
+// Calculate portfolio summary
+export async function getPortfolioSummary(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<{
+  totalInvested: number;
+  totalCurrent: number;
+  totalReturns: number;
+  returnsPercentage: number;
+}> {
+  try {
+    const investments = await getInvestments(userId, encryptionKey);
+
+    const totalInvested = investments.reduce((sum, inv) => {
+      const units = inv.units || 1;
+      return sum + (inv.purchasePrice * units);
+    }, 0);
+
+    const totalCurrent = investments.reduce((sum, inv) => {
+      const units = inv.units || 1;
+      return sum + (inv.currentPrice * units);
+    }, 0);
+
+    const totalReturns = totalCurrent - totalInvested;
+    const returnsPercentage = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0;
+
+    return {
+      totalInvested,
+      totalCurrent,
+      totalReturns,
+      returnsPercentage,
+    };
+  } catch (error) {
+    console.error('Error calculating portfolio summary:', error);
+    throw error;
+  }
+}
+
+// Get upcoming SIPs
+export async function getUpcomingSIPs(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<Investment[]> {
+  try {
+    const investments = await getInvestmentsByType(userId, 'sip', encryptionKey);
+    
+    // Filter for SIPs with sipAmount and sipDate
+    return investments.filter(inv => inv.sipAmount && inv.sipDate);
+  } catch (error) {
+    console.error('Error fetching upcoming SIPs:', error);
+    throw error;
+  }
+}
+
+// Get maturing investments (within next 30 days)
+export async function getMaturingInvestments(
+  userId: string,
+  encryptionKey: CryptoKey
+): Promise<Investment[]> {
+  try {
+    const investments = await getInvestments(userId, encryptionKey);
+    
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    return investments.filter(inv => 
+      inv.maturityDate && 
+      inv.maturityDate <= thirtyDaysFromNow &&
+      inv.maturityDate >= new Date()
+    );
+  } catch (error) {
+    console.error('Error fetching maturing investments:', error);
     throw error;
   }
 }

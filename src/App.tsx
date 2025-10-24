@@ -11,6 +11,11 @@ import DashboardPage from '@/pages/Dashboard';
 import AccountsPage from '@/pages/Accounts';
 import TransactionsPage from '@/pages/Transactions';
 import BudgetsPage from '@/pages/Budgets';
+import GoalsPage from '@/pages/Goals';
+import InvestmentsPage from '@/pages/Investments';
+import CalculatorsPage from '@/pages/Calculators';
+import ReportsPage from '@/pages/Reports';
+import Categories from './pages/Catgeories';
 
 function App() {
   return (
@@ -58,8 +63,53 @@ function App() {
               }
             />
 
+            <Route
+              path="/goals"
+              element={
+                <ProtectedRoute>
+                  <GoalsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/categories"
+              element={
+                <ProtectedRoute>
+                  <Categories />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/investments"
+              element={
+                <ProtectedRoute>
+                  <InvestmentsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/calculators"
+              element={
+                <ProtectedRoute>
+                  <CalculatorsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Catch all - redirect to landing */}
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
         </AuthProvider>
       </ThemeProvider>

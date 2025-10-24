@@ -101,6 +101,7 @@ export interface Category {
   userId?: string;
   parentId?: string;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Budget types

@@ -7,8 +7,9 @@ import {
   updateTransaction,
   deleteTransaction,
   getAccounts,
+  getCategories,
 } from '@/lib/firestore';
-import { Transaction, TransactionType, PaymentMethod, Account } from '@/types';
+import { Transaction, TransactionType, PaymentMethod, Account, Category } from '@/types';
 import {
   Plus, Search, Pencil, Trash2, X, Check, Loader2, AlertCircle,
   ArrowUpCircle, ArrowDownCircle, RefreshCw, TrendingUp, TrendingDown
@@ -25,6 +26,7 @@ export default function Transactions() {
   const { currentUser, encryptionKey } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -60,12 +62,14 @@ export default function Transactions() {
 
     try {
       setLoading(true);
-      const [txns, accs] = await Promise.all([
+      const [txns, accs, cats] = await Promise.all([
         getTransactions(currentUser.uid, encryptionKey, 100),
         getAccounts(currentUser.uid, encryptionKey),
+        getCategories(currentUser.uid, encryptionKey),
       ]);
       setTransactions(txns);
       setAccounts(accs);
+      setCustomCategories(cats);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load transactions');
@@ -191,11 +195,18 @@ export default function Transactions() {
     }
   }
 
+  // Combine default and custom categories
+  const allCategories = [
+    ...DEFAULT_INCOME_CATEGORIES,
+    ...DEFAULT_EXPENSE_CATEGORIES,
+    ...DEFAULT_INVESTMENT_CATEGORIES,
+    ...customCategories,
+  ];
+
   // Get available categories based on type
   const availableCategories = 
-    formData.type === 'income' ? DEFAULT_INCOME_CATEGORIES :
-    formData.type === 'expense' ? DEFAULT_EXPENSE_CATEGORIES :
-    DEFAULT_INVESTMENT_CATEGORIES;
+    allCategories.filter(c => c.type === formData.type);
+
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {
@@ -343,7 +354,7 @@ export default function Transactions() {
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Categories</option>
-              {[...DEFAULT_INCOME_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES, ...DEFAULT_INVESTMENT_CATEGORIES].map((cat, idx) => (
+              {allCategories.map((cat, idx) => (
                 <option key={idx} value={cat.name}>{cat.icon} {cat.name}</option>
               ))}
             </select>
@@ -400,8 +411,7 @@ export default function Transactions() {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredTransactions.map((txn) => {
                     const account = accounts.find((a) => a.id === txn.accountId);
-                    const category = [...DEFAULT_INCOME_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES, ...DEFAULT_INVESTMENT_CATEGORIES]
-                      .find((c) => c.name === txn.category);
+                    const category = allCategories.find((c) => c.name === txn.category);
 
                     return (
                       <tr key={txn.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">

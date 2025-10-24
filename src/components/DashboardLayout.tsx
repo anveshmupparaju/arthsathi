@@ -40,6 +40,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: Target, label: 'Goals', path: '/goals' },
     { icon: Calculator, label: 'Calculators', path: '/calculators' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
+    { icon: BarChart3, label: 'Categories', path: '/categories' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
