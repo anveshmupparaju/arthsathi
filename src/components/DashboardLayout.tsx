@@ -1,14 +1,15 @@
 // ============================================
 // FILE: src/components/DashboardLayout.tsx (UPDATED - Use ThemeContext)
 // ============================================
+import { Helmet } from 'react-helmet';
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { 
-  Wallet, Moon, Sun, Bell, User, Settings, LogOut, 
+  Wallet, Moon, Sun, Bell, User, Settings, LogOut,
   Home, CreditCard, Briefcase, FileText, Calculator, PieChart, 
-  Target, BarChart3, Menu, X, ChartPie 
+  Target, BarChart3, Menu, X, Tags
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -40,12 +41,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: Target, label: 'Goals', path: '/goals' },
     { icon: Calculator, label: 'Calculators', path: '/calculators' },
     { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: ChartPie, label: 'Categories', path: '/categories' },
+    { icon: Tags, label: 'Categories', path: '/categories' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   return (
     <div className={darkMode ? 'dark' : ''}>
+      <Helmet>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      </Helmet>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Top Navigation */}
         <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
@@ -197,4 +201,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   );
 }
-
