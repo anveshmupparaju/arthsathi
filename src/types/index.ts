@@ -49,6 +49,14 @@ export interface Account {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Fields for loan accounts
+  emiAmount?: number;
+  emiDate?: number; // Day of the month (1-31)
+  autoDebit?: boolean;
+  autoDebitAccountId?: string;
+  // Fields for credit card accounts
+  billingDate?: number; // Day of the month (1-31)
+  gracePeriod?: number; // Days from billing date to due date
 }
 
 // Transaction types

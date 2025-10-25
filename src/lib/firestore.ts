@@ -53,6 +53,12 @@ export async function createAccount(
       balance: accountData.balance,
       currency: accountData.currency,
       isActive: accountData.isActive,
+      emiAmount: accountData.emiAmount || null,
+      emiDate: accountData.emiDate || null,
+      autoDebit: accountData.autoDebit || false,
+      autoDebitAccountId: accountData.autoDebitAccountId || null,
+      billingDate: accountData.billingDate || null,
+      gracePeriod: accountData.gracePeriod || null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -95,6 +101,12 @@ export async function getAccounts(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+        emiAmount: data.emiAmount,
+        emiDate: data.emiDate,
+        autoDebit: data.autoDebit,
+        autoDebitAccountId: data.autoDebitAccountId,
+        billingDate: data.billingDate,
+        gracePeriod: data.gracePeriod,
       });
     }
 
@@ -134,6 +146,12 @@ export async function getAccount(
       isActive: data.isActive,
       createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
       updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      emiAmount: data.emiAmount,
+      emiDate: data.emiDate,
+      autoDebit: data.autoDebit,
+      autoDebitAccountId: data.autoDebitAccountId,
+      billingDate: data.billingDate,
+      gracePeriod: data.gracePeriod,
     };
   } catch (error) {
     console.error('Error fetching account:', error);
@@ -163,6 +181,14 @@ export async function updateAccount(
     if (accountData.balance !== undefined) unencryptedFields.balance = accountData.balance;
     if (accountData.currency !== undefined) unencryptedFields.currency = accountData.currency;
     if (accountData.isActive !== undefined) unencryptedFields.isActive = accountData.isActive;
+    // Loan fields
+    if (accountData.emiAmount !== undefined) unencryptedFields.emiAmount = accountData.emiAmount;
+    if (accountData.emiDate !== undefined) unencryptedFields.emiDate = accountData.emiDate;
+    if (accountData.autoDebit !== undefined) unencryptedFields.autoDebit = accountData.autoDebit;
+    if (accountData.autoDebitAccountId !== undefined) unencryptedFields.autoDebitAccountId = accountData.autoDebitAccountId;
+    // Credit Card fields
+    if (accountData.billingDate !== undefined) unencryptedFields.billingDate = accountData.billingDate;
+    if (accountData.gracePeriod !== undefined) unencryptedFields.gracePeriod = accountData.gracePeriod;
 
     // Encrypt sensitive data if any
     if (Object.keys(encryptedFields).length > 0) {
@@ -231,6 +257,12 @@ export async function getActiveAccounts(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+        emiAmount: data.emiAmount,
+        emiDate: data.emiDate,
+        autoDebit: data.autoDebit,
+        autoDebitAccountId: data.autoDebitAccountId,
+        billingDate: data.billingDate,
+        gracePeriod: data.gracePeriod,
       });
     }
 
@@ -274,6 +306,12 @@ export async function getAccountsByType(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+        emiAmount: data.emiAmount,
+        emiDate: data.emiDate,
+        autoDebit: data.autoDebit,
+        autoDebitAccountId: data.autoDebitAccountId,
+        billingDate: data.billingDate,
+        gracePeriod: data.gracePeriod,
       });
     }
 
@@ -626,10 +664,22 @@ async function updateAccountBalance(
     const accountSnap = await getDoc(accountRef);
 
     if (accountSnap.exists()) {
-      const currentBalance = accountSnap.data().balance || 0;
+      const accountData = accountSnap.data();
+      const currentBalance = accountData.balance || 0;
+      const accountType = accountData.accountType || '';
+      const isLoanAccount = accountType.includes('_loan');
+      const isCreditCard = accountType === 'credit_card';
       let newBalance = currentBalance;
 
-      if (type === 'income') {
+      // For loan or credit card accounts, an 'expense' transaction (a payment) reduces the liability,
+      // so we add the principal amount to the negative balance.
+      // For simplicity here, we'll treat the whole expense amount as reducing principal.
+      // A more complex implementation would split EMI into principal and interest.
+      // A credit card 'income' transaction represents a purchase, increasing the negative balance.
+      if ((isLoanAccount || isCreditCard) && type === 'expense') {
+        // amount is positive, currentBalance is negative. newBalance moves closer to 0.
+        newBalance = currentBalance + amount;
+      } else if (type === 'income') {
         newBalance = currentBalance + amount;
       } else if (type === 'expense') {
         newBalance = currentBalance - amount;

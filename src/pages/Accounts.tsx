@@ -7,7 +7,8 @@ import {
     getAccounts,
     createAccount,
     updateAccount,
-    deleteAccount
+    deleteAccount,
+    getActiveAccounts
 } from '@/lib/firestore';
 import { Account, AccountType } from '@/types';
 import {
@@ -20,6 +21,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 
 export default function Accounts() {
     const { currentUser, encryptionKey } = useAuth();
+    const [allAccounts, setAllAccounts] = useState<Account[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -36,6 +38,12 @@ export default function Accounts() {
         balance: 0,
         currency: 'INR',
         isActive: true,
+        emiAmount: 0,
+        emiDate: 1,
+        autoDebit: false,
+        autoDebitAccountId: '',
+        billingDate: 1,
+        gracePeriod: 20,
     });
 
     // Load accounts
@@ -48,8 +56,12 @@ export default function Accounts() {
 
         try {
             setLoading(true);
-            const data = await getAccounts(currentUser.uid, encryptionKey);
-            setAccounts(data);
+            const [all, active] = await Promise.all([
+                getAccounts(currentUser.uid, encryptionKey),
+                getActiveAccounts(currentUser.uid, encryptionKey)
+            ]);
+            setAccounts(all);
+            setAllAccounts(active);
         } catch (error) {
             console.error('Error loading accounts:', error);
             setError('Failed to load accounts');
@@ -68,6 +80,12 @@ export default function Accounts() {
             balance: 0,
             currency: 'INR',
             isActive: true,
+            emiAmount: 0,
+            emiDate: 1,
+            autoDebit: false,
+            autoDebitAccountId: '',
+            billingDate: 1,
+            gracePeriod: 20,
         });
         setShowModal(true);
         setError('');
@@ -83,6 +101,12 @@ export default function Accounts() {
             balance: account.balance,
             currency: account.currency,
             isActive: account.isActive,
+            emiAmount: account.emiAmount || 0,
+            emiDate: account.emiDate || 1,
+            autoDebit: account.autoDebit || false,
+            autoDebitAccountId: account.autoDebitAccountId || '',
+            billingDate: account.billingDate || 1,
+            gracePeriod: account.gracePeriod || 20,
         });
         setShowModal(true);
         setError('');
@@ -102,17 +126,27 @@ export default function Accounts() {
             setSaving(true);
             setError('');
 
+            const accountData = {
+                ...formData,
+                emiAmount: formData.accountType.includes('_loan') ? formData.emiAmount : undefined,
+                emiDate: formData.accountType.includes('_loan') ? formData.emiDate : undefined,
+                autoDebit: formData.accountType.includes('_loan') ? formData.autoDebit : undefined,
+                autoDebitAccountId: formData.accountType.includes('_loan') && formData.autoDebit ? formData.autoDebitAccountId : undefined,
+                billingDate: formData.accountType === 'credit_card' ? formData.billingDate : undefined,
+                gracePeriod: formData.accountType === 'credit_card' ? formData.gracePeriod : undefined,
+            };
+
             if (editingAccount) {
                 // Update existing account
                 await updateAccount(
                     currentUser.uid,
                     editingAccount.id,
-                    formData,
+                    accountData,
                     encryptionKey
                 );
             } else {
                 // Create new account
-                await createAccount(currentUser.uid, formData, encryptionKey);
+                await createAccount(currentUser.uid, accountData, encryptionKey);
             }
 
             await loadAccounts();
@@ -308,6 +342,46 @@ export default function Accounts() {
                                                 </div>
                                             )}
 
+                                            {/* EMI Details for Loan Accounts */}
+                                            {account.accountType.includes('_loan') && (
+                                                <div className="space-y-2 mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs">
+                                                    {account.emiAmount && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600 dark:text-gray-400">EMI Amount</span>
+                                                            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(account.emiAmount)}</span>
+                                                        </div>
+                                                    )}
+                                                    {account.emiDate && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600 dark:text-gray-400">EMI Date</span>
+                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                                {account.emiDate}{account.emiDate === 1 ? 'st' : account.emiDate === 2 ? 'nd' : account.emiDate === 3 ? 'rd' : 'th'} of every month
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Credit Card Details */}
+                                            {account.accountType === 'credit_card' && (
+                                                <div className="space-y-2 mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs">
+                                                    {account.billingDate && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600 dark:text-gray-400">Billing Date</span>
+                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                                {account.billingDate}{account.billingDate === 1 ? 'st' : account.billingDate === 2 ? 'nd' : account.billingDate === 3 ? 'rd' : 'th'} of every month
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {account.gracePeriod && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600 dark:text-gray-400">Payment Due</span>
+                                                            <span className="font-medium text-gray-900 dark:text-white">{account.gracePeriod} days after bill</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {/* Actions */}
                                             <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                                                 <button
@@ -428,6 +502,93 @@ export default function Accounts() {
                                         🔒 This will be encrypted and stored securely
                                     </p>
                                 </div>
+
+                                {/* Credit Card specific fields */}
+                                {formData.accountType === 'credit_card' && (
+                                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 space-y-4">
+                                        <h4 className="text-md font-semibold text-purple-900 dark:text-purple-300">Credit Card Details</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Billing Date (Day of Month)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.billingDate}
+                                                    onChange={(e) => setFormData({ ...formData, billingDate: parseInt(e.target.value) || 1 })}
+                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                    min="1" max="31"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Grace Period (Days)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.gracePeriod}
+                                                    onChange={(e) => setFormData({ ...formData, gracePeriod: parseInt(e.target.value) || 20 })}
+                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                    min="0" max="60"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Loan specific fields */}
+                                {formData.accountType.includes('_loan') && (
+                                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-4">
+                                        <h4 className="text-md font-semibold text-blue-900 dark:text-blue-300">Loan Details</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    EMI Amount (₹)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.emiAmount || ''}
+                                                    onChange={(e) => setFormData({ ...formData, emiAmount: parseFloat(e.target.value) || 0 })}
+                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                    placeholder="25000"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    EMI Date (Day of Month)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.emiDate}
+                                                    onChange={(e) => setFormData({ ...formData, emiDate: parseInt(e.target.value) || 1 })}
+                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                    min="1" max="31"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <input type="checkbox" id="autoDebit" checked={formData.autoDebit} onChange={(e) => setFormData({ ...formData, autoDebit: e.target.checked })} className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                                            <label htmlFor="autoDebit" className="text-sm font-medium text-gray-700 dark:text-gray-300">Auto Debit Enabled</label>
+                                        </div>
+                                        {formData.autoDebit && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Debit from Account
+                                                </label>
+                                                <select
+                                                    value={formData.autoDebitAccountId}
+                                                    onChange={(e) => setFormData({ ...formData, autoDebitAccountId: e.target.value })}
+                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                >
+                                                    <option value="">Select debit account</option>
+                                                    {allAccounts.filter(acc => !acc.accountType.includes('_loan')).map(acc => (
+                                                        <option key={acc.id} value={acc.id}>{acc.accountName} ({formatCurrency(acc.balance)})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Balance & Currency */}
                                 <div className="grid grid-cols-2 gap-4">
