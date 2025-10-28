@@ -65,28 +65,36 @@ export const DEFAULT_CATEGORIES = [
 
 // Account type labels
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  // Banking
   savings: 'Savings Account',
   current: 'Current Account',
+  salary: 'Salary Account',
   fixed_deposit: 'Fixed Deposit',
   recurring_deposit: 'Recurring Deposit',
-  salary: 'Salary Account',
   nre: 'NRE Account',
   nro: 'NRO Account',
+
+  // Investments
   demat: 'Demat Account',
   trading: 'Trading Account',
   mutual_fund: 'Mutual Fund Folio',
   ppf: 'PPF Account',
   epf: 'EPF Account',
   nps: 'NPS Account',
-  sukanya: 'Sukanya Samriddhi Account',
-  gold: 'Gold Investment',
+  sukanya_samriddhi: 'Sukanya Samriddhi',
+  sovereign_gold_bond: 'Sovereign Gold Bond',
+  real_estate: 'Real Estate',
+  other_investment: 'Other Investment',
+
+  // Loans & Credit
   credit_card: 'Credit Card',
   home_loan: 'Home Loan',
   personal_loan: 'Personal Loan',
   car_loan: 'Car Loan',
   education_loan: 'Education Loan',
   gold_loan: 'Gold Loan',
-  other_loan: 'Other Loan',
+  loan_against_property: 'Loan Against Property',
+  business_loan: 'Business Loan',
 };
 
 // Payment method labels

@@ -1,28 +1,23 @@
-// ============================================
-// FILE: src/pages/Dashboard.tsx - ENHANCED VERSION
-// Replace the existing Dashboard.tsx with this complete version
-// ============================================
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  TrendingUp, Briefcase, FileText, CreditCard, 
-  PieChart, BarChart3, IndianRupee, ArrowUpCircle, 
-  ArrowDownCircle, Wallet, Target, Calendar, Loader2
+import {
+  TrendingUp, Briefcase, FileText, CreditCard, PieChart,
+  BarChart3, ArrowUpCircle, RefreshCw,
+  ArrowDownCircle, Calendar, Loader2
 } from 'lucide-react';
-import { 
-  getTransactions, 
-  getAccounts, 
+import {
+  getTransactions,
+  getAccounts,
   getInvestments,
-  getBudgetsWithSpending 
+  getBudgetsWithSpending
 } from '@/lib/firestore';
-import { Transaction, Account, Investment, Budget } from '@/types';
+import { Transaction, Account, Investment, Budget, FinancialAlert } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { 
-  BarChart, 
-  Bar, 
+import {
+  BarChart,
+  Bar,
   LineChart,
   Line,
   PieChart as RechartsPie,
@@ -30,11 +25,13 @@ import {
   Cell,
   XAxis, 
   YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
 } from 'recharts';
+import { generateFinancialAlerts } from '@/lib/notifications';
+import FinancialAlerts from '@/components/dashboard/FinancialAlerts';
 
 export default function Dashboard() {
   const { userProfile, currentUser, encryptionKey } = useAuth();
@@ -45,6 +42,7 @@ export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [budgets, setBudgets] = useState<Array<Budget & { spent: number; percentage: number }>>([]);
+  const [alerts, setAlerts] = useState<FinancialAlert[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -66,6 +64,9 @@ export default function Dashboard() {
       setAccounts(accs);
       setInvestments(invs);
       setBudgets(budgs);
+
+      const financialAlerts = generateFinancialAlerts(accs, txns);
+      setAlerts(financialAlerts);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -277,6 +278,11 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Financial Alerts */}
+        <div className="mb-8">
+          <FinancialAlerts alerts={alerts} />
+        </div>
+
         {/* Charts Section */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Recent Activity Chart */}
@@ -393,12 +399,15 @@ export default function Dashboard() {
                       txn.type === 'income' 
                         ? 'bg-green-100 dark:bg-green-900/30' 
                         : txn.type === 'expense'
-                        ? 'bg-red-100 dark:bg-red-900/30'
-                        : 'bg-purple-100 dark:bg-purple-900/30'
+                          ? 'bg-red-100 dark:bg-red-900/30'
+                          : txn.type === 'investment'
+                            ? 'bg-purple-100 dark:bg-purple-900/30'
+                            : 'bg-yellow-100 dark:bg-yellow-900/30' // Transfer
                     }`}>
                       {txn.type === 'income' && <ArrowDownCircle className="w-5 h-5 text-green-600 dark:text-green-400" />}
                       {txn.type === 'expense' && <ArrowUpCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
                       {txn.type === 'investment' && <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
+                      {txn.type === 'transfer' && <RefreshCw className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900 dark:text-white">
@@ -412,7 +421,9 @@ export default function Dashboard() {
                   <div className={`text-lg font-semibold ${
                     txn.type === 'income' 
                       ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
+                      : txn.type === 'expense'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-gray-500 dark:text-gray-400' // For investment/transfer
                   }`}>
                     {txn.type === 'income' ? '+' : '-'}{formatCurrency(txn.amount)}
                   </div>

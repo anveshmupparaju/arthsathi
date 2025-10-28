@@ -37,6 +37,11 @@ export type AccountType =
   | 'gold_loan'
   | 'other_loan';
 
+export interface InterestRateHistoryEntry {
+  rate: number;
+  effectiveFrom: string; // YYYY-MM-DD
+}
+
 export interface Account {
   id: string;
   userId: string;
@@ -49,14 +54,29 @@ export interface Account {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  // Fields for loan accounts
+  // Credit Card
+  creditLimit?: number;
+  statementDate?: number;
+  dueDate?: number;
+  // Loan
+  loanAmount?: number;
+  interestRate?: number;
+  interestRateHistory?: InterestRateHistoryEntry[];
+  tenure?: number;
   emiAmount?: number;
-  emiDate?: number; // Day of the month (1-31)
+  emiDate?: number;
   autoDebit?: boolean;
   autoDebitAccountId?: string;
-  // Fields for credit card accounts
-  billingDate?: number; // Day of the month (1-31)
-  gracePeriod?: number; // Days from billing date to due date
+  // Investments (FD/RD etc)
+  principalAmount?: number;
+  maturityDate?: string;
+  maturityAmount?: number;
+  installmentAmount?: number;
+  // Demat
+  brokerName?: string;
+  depository?: string;
+  dpId?: string;
+  clientId?: string;
 }
 
 // Transaction types
@@ -75,6 +95,7 @@ export interface Transaction {
   id: string;
   userId: string;
   accountId: string;
+  toAccountId?: string;
   date: Date;
   amount: number;
   type: TransactionType;
@@ -292,4 +313,12 @@ export interface DashboardSummary {
   savingsRate: number;
   investmentValue: number;
   investmentReturns: number;
+}
+
+export interface FinancialAlert {
+  id: string;
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  message: string;
+  date: Date;
 }

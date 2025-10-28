@@ -46,6 +46,36 @@ export async function createAccount(
       encryptionKey
     );
 
+    // Prepare type-specific details
+    const details: any = {};
+    if (accountData.accountType === 'credit_card') {
+      details.creditLimit = accountData.creditLimit;
+      details.statementDate = accountData.statementDate;
+      details.dueDate = accountData.dueDate;
+    } else if (accountData.accountType.includes('_loan')) {
+      details.loanAmount = accountData.loanAmount;
+      details.interestRate = accountData.interestRate;
+      details.tenure = accountData.tenure;
+      details.emiAmount = accountData.emiAmount;
+      details.emiDate = accountData.emiDate;
+      details.autoDebit = accountData.autoDebit;
+      details.autoDebitAccountId = accountData.autoDebitAccountId;
+    } else if (['demat', 'trading'].includes(accountData.accountType)) {
+      details.brokerName = accountData.brokerName;
+      details.interestRateHistory = accountData.interestRateHistory;
+      details.depository = accountData.depository;
+      details.dpId = accountData.dpId;
+      details.clientId = accountData.clientId;
+    } else if (['fixed_deposit', 'recurring_deposit', 'ppf', 'epf', 'nps', 'sukanya_samriddhi'].includes(accountData.accountType)) {
+      details.principalAmount = accountData.principalAmount;
+      details.interestRate = accountData.interestRate;
+      details.maturityDate = accountData.maturityDate ? new Date(accountData.maturityDate) : null;
+      details.maturityAmount = accountData.maturityAmount;
+      if (accountData.accountType === 'recurring_deposit') {
+        details.installmentAmount = accountData.installmentAmount;
+      }
+    }
+
     // Prepare document for Firestore
     const firestoreDoc = {
       data: encryptedData, // Encrypted blob
@@ -53,12 +83,7 @@ export async function createAccount(
       balance: accountData.balance,
       currency: accountData.currency,
       isActive: accountData.isActive,
-      emiAmount: accountData.emiAmount || null,
-      emiDate: accountData.emiDate || null,
-      autoDebit: accountData.autoDebit || false,
-      autoDebitAccountId: accountData.autoDebitAccountId || null,
-      billingDate: accountData.billingDate || null,
-      gracePeriod: accountData.gracePeriod || null,
+      details: Object.keys(details).length > 0 ? details : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -101,12 +126,7 @@ export async function getAccounts(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-        emiAmount: data.emiAmount,
-        emiDate: data.emiDate,
-        autoDebit: data.autoDebit,
-        autoDebitAccountId: data.autoDebitAccountId,
-        billingDate: data.billingDate,
-        gracePeriod: data.gracePeriod,
+        ...data.details, // Spread the details object
       });
     }
 
@@ -146,12 +166,7 @@ export async function getAccount(
       isActive: data.isActive,
       createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
       updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-      emiAmount: data.emiAmount,
-      emiDate: data.emiDate,
-      autoDebit: data.autoDebit,
-      autoDebitAccountId: data.autoDebitAccountId,
-      billingDate: data.billingDate,
-      gracePeriod: data.gracePeriod,
+      ...data.details, // Spread the details object
     };
   } catch (error) {
     console.error('Error fetching account:', error);
@@ -171,7 +186,7 @@ export async function updateAccount(
 
     // Separate encrypted and unencrypted fields
     const encryptedFields: any = {};
-    const unencryptedFields: any = {};
+    const unencryptedFields: any = { details: {} };
 
     if (accountData.accountName !== undefined) encryptedFields.accountName = accountData.accountName;
     if (accountData.bankName !== undefined) encryptedFields.bankName = accountData.bankName;
@@ -181,14 +196,33 @@ export async function updateAccount(
     if (accountData.balance !== undefined) unencryptedFields.balance = accountData.balance;
     if (accountData.currency !== undefined) unencryptedFields.currency = accountData.currency;
     if (accountData.isActive !== undefined) unencryptedFields.isActive = accountData.isActive;
+
     // Loan fields
-    if (accountData.emiAmount !== undefined) unencryptedFields.emiAmount = accountData.emiAmount;
-    if (accountData.emiDate !== undefined) unencryptedFields.emiDate = accountData.emiDate;
-    if (accountData.autoDebit !== undefined) unencryptedFields.autoDebit = accountData.autoDebit;
-    if (accountData.autoDebitAccountId !== undefined) unencryptedFields.autoDebitAccountId = accountData.autoDebitAccountId;
+    if (accountData.loanAmount !== undefined) unencryptedFields.details.loanAmount = accountData.loanAmount;
+    if (accountData.interestRate !== undefined) unencryptedFields.details.interestRate = accountData.interestRate;
+    if (accountData.tenure !== undefined) unencryptedFields.details.tenure = accountData.tenure;
+    if (accountData.emiAmount !== undefined) unencryptedFields.details.emiAmount = accountData.emiAmount;
+    if (accountData.emiDate !== undefined) unencryptedFields.details.emiDate = accountData.emiDate;
+    if (accountData.autoDebit !== undefined) unencryptedFields.details.autoDebit = accountData.autoDebit;
+    if (accountData.autoDebitAccountId !== undefined) unencryptedFields.details.autoDebitAccountId = accountData.autoDebitAccountId;
+
     // Credit Card fields
-    if (accountData.billingDate !== undefined) unencryptedFields.billingDate = accountData.billingDate;
-    if (accountData.gracePeriod !== undefined) unencryptedFields.gracePeriod = accountData.gracePeriod;
+    if (accountData.creditLimit !== undefined) unencryptedFields.details.creditLimit = accountData.creditLimit;
+    if (accountData.statementDate !== undefined) unencryptedFields.details.statementDate = accountData.statementDate;
+    if (accountData.dueDate !== undefined) unencryptedFields.details.dueDate = accountData.dueDate;
+
+    // Demat fields
+    if (accountData.brokerName !== undefined) unencryptedFields.details.brokerName = accountData.brokerName;
+    if (accountData.depository !== undefined) unencryptedFields.details.depository = accountData.depository;
+    if (accountData.dpId !== undefined) unencryptedFields.details.dpId = accountData.dpId;
+    if (accountData.interestRateHistory !== undefined) unencryptedFields.details.interestRateHistory = accountData.interestRateHistory;
+    if (accountData.clientId !== undefined) unencryptedFields.details.clientId = accountData.clientId;
+
+    // Investment fields
+    if (accountData.principalAmount !== undefined) unencryptedFields.details.principalAmount = accountData.principalAmount;
+    if (accountData.maturityDate !== undefined) unencryptedFields.details.maturityDate = accountData.maturityDate ? new Date(accountData.maturityDate) : null;
+    if (accountData.maturityAmount !== undefined) unencryptedFields.details.maturityAmount = accountData.maturityAmount;
+    if (accountData.installmentAmount !== undefined) unencryptedFields.details.installmentAmount = accountData.installmentAmount;
 
     // Encrypt sensitive data if any
     if (Object.keys(encryptedFields).length > 0) {
@@ -196,10 +230,17 @@ export async function updateAccount(
       const docSnap = await getDoc(accountRef);
       if (docSnap.exists()) {
         const existingData = await decryptData(docSnap.data().data, encryptionKey);
+        const existingDetails = docSnap.data().details || {};
         const mergedData = { ...existingData, ...encryptedFields };
         const encryptedData = await encryptData(mergedData, encryptionKey);
         unencryptedFields.data = encryptedData;
+        unencryptedFields.details = { ...existingDetails, ...unencryptedFields.details };
       }
+    }
+
+    // Clean up empty details object
+    if (Object.keys(unencryptedFields.details).length === 0) {
+      delete unencryptedFields.details;
     }
 
     unencryptedFields.updatedAt = serverTimestamp();
@@ -257,12 +298,7 @@ export async function getActiveAccounts(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-        emiAmount: data.emiAmount,
-        emiDate: data.emiDate,
-        autoDebit: data.autoDebit,
-        autoDebitAccountId: data.autoDebitAccountId,
-        billingDate: data.billingDate,
-        gracePeriod: data.gracePeriod,
+        ...data.details, // Spread the details object
       });
     }
 
@@ -306,12 +342,7 @@ export async function getAccountsByType(
         isActive: data.isActive,
         createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
         updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-        emiAmount: data.emiAmount,
-        emiDate: data.emiDate,
-        autoDebit: data.autoDebit,
-        autoDebitAccountId: data.autoDebitAccountId,
-        billingDate: data.billingDate,
-        gracePeriod: data.gracePeriod,
+        ...data.details, // Spread the details object
       });
     }
 
@@ -370,6 +401,7 @@ export async function createTransaction(
       type: transactionData.type,
       category: transactionData.category,
       subcategory: transactionData.subcategory || null,
+      toAccountId: transactionData.toAccountId || null,
       accountId: transactionData.accountId,
       paymentMethod: transactionData.paymentMethod,
       isRecurring: transactionData.isRecurring,
@@ -383,12 +415,19 @@ export async function createTransaction(
 
     // Update account balance
     if (transactionData.accountId) {
-      await updateAccountBalance(
-        userId,
-        transactionData.accountId,
-        transactionData.amount,
-        transactionData.type
-      );
+      if (transactionData.type === 'transfer' && transactionData.toAccountId) {
+        // For transfers, debit from source and credit to destination
+        await updateAccountBalance(userId, transactionData.accountId, -transactionData.amount); // Debit source
+        await updateAccountBalance(userId, transactionData.toAccountId, transactionData.amount); // Credit destination
+      } else {
+        // For income/expense/investment
+        await updateAccountBalance(
+          userId,
+          transactionData.accountId,
+          transactionData.amount,
+          transactionData.type
+        );
+      }
     }
 
     return transactionId;
@@ -428,6 +467,7 @@ export async function getTransactions(
         type: data.type,
         category: data.category,
         subcategory: data.subcategory,
+        toAccountId: data.toAccountId,
         description: decryptedData.description,
         merchant: decryptedData.merchant,
         accountId: data.accountId,
@@ -482,6 +522,7 @@ export async function getTransactionsByDateRange(
         type: data.type,
         category: data.category,
         subcategory: data.subcategory,
+        toAccountId: data.toAccountId,
         description: decryptedData.description,
         merchant: decryptedData.merchant,
         accountId: data.accountId,
@@ -534,6 +575,7 @@ export async function getTransactionsByAccount(
         type: data.type,
         category: data.category,
         subcategory: data.subcategory,
+        toAccountId: data.toAccountId,
         description: decryptedData.description,
         merchant: decryptedData.merchant,
         accountId: data.accountId,
@@ -582,6 +624,7 @@ export async function updateTransaction(
     if (transactionData.type !== undefined) unencryptedFields.type = transactionData.type;
     if (transactionData.category !== undefined) unencryptedFields.category = transactionData.category;
     if (transactionData.subcategory !== undefined) unencryptedFields.subcategory = transactionData.subcategory;
+    if (transactionData.toAccountId !== undefined) unencryptedFields.toAccountId = transactionData.toAccountId;
     if (transactionData.accountId !== undefined) unencryptedFields.accountId = transactionData.accountId;
     if (transactionData.paymentMethod !== undefined) unencryptedFields.paymentMethod = transactionData.paymentMethod;
     if (transactionData.isRecurring !== undefined) unencryptedFields.isRecurring = transactionData.isRecurring;
@@ -605,21 +648,29 @@ export async function updateTransaction(
 
     // Update account balance if amount or type changed
     if (
-      (transactionData.amount !== undefined || transactionData.type !== undefined) &&
-      oldTransaction.accountId
+      (transactionData.amount !== undefined || transactionData.type !== undefined || transactionData.accountId !== undefined || transactionData.toAccountId !== undefined) &&
+      (oldTransaction.accountId || transactionData.accountId)
     ) {
       // Reverse old transaction
-      await updateAccountBalance(
-        userId,
-        oldTransaction.accountId,
-        -oldTransaction.amount,
-        oldTransaction.type
-      );
+      if (oldTransaction.type === 'transfer' && oldTransaction.toAccountId) {
+        await updateAccountBalance(userId, oldTransaction.accountId, oldTransaction.amount); // Reverse debit
+        await updateAccountBalance(userId, oldTransaction.toAccountId, -oldTransaction.amount); // Reverse credit
+      } else if (oldTransaction.accountId) {
+        await updateAccountBalance(userId, oldTransaction.accountId, -oldTransaction.amount, oldTransaction.type);
+      }
 
       // Apply new transaction
       const newAmount = transactionData.amount ?? oldTransaction.amount;
       const newType = transactionData.type ?? oldTransaction.type;
-      await updateAccountBalance(userId, oldTransaction.accountId, newAmount, newType);
+      const newAccountId = transactionData.accountId ?? oldTransaction.accountId;
+      const newToAccountId = transactionData.toAccountId ?? oldTransaction.toAccountId;
+
+      if (newType === 'transfer' && newToAccountId) {
+        await updateAccountBalance(userId, newAccountId, -newAmount);
+        await updateAccountBalance(userId, newToAccountId, newAmount);
+      } else {
+        await updateAccountBalance(userId, newAccountId, newAmount, newType);
+      }
     }
   } catch (error) {
     console.error('Error updating transaction:', error);
@@ -638,13 +689,11 @@ export async function deleteTransaction(
     await deleteDoc(transactionRef);
 
     // Reverse the account balance
-    if (transaction.accountId) {
-      await updateAccountBalance(
-        userId,
-        transaction.accountId,
-        -transaction.amount,
-        transaction.type
-      );
+    if (transaction.type === 'transfer' && transaction.toAccountId && transaction.accountId) {
+      await updateAccountBalance(userId, transaction.accountId, transaction.amount); // Reverse debit
+      await updateAccountBalance(userId, transaction.toAccountId, -transaction.amount); // Reverse credit
+    } else if (transaction.accountId) {
+      await updateAccountBalance(userId, transaction.accountId, -transaction.amount, transaction.type);
     }
   } catch (error) {
     console.error('Error deleting transaction:', error);
@@ -657,7 +706,7 @@ async function updateAccountBalance(
   userId: string,
   accountId: string,
   amount: number,
-  type: string
+  type?: string
 ): Promise<void> {
   try {
     const accountRef = doc(db, 'users', userId, 'accounts', accountId);
@@ -670,21 +719,23 @@ async function updateAccountBalance(
       const isLoanAccount = accountType.includes('_loan');
       const isCreditCard = accountType === 'credit_card';
       let newBalance = currentBalance;
-
-      // For loan or credit card accounts, an 'expense' transaction (a payment) reduces the liability,
-      // so we add the principal amount to the negative balance.
-      // For simplicity here, we'll treat the whole expense amount as reducing principal.
-      // A more complex implementation would split EMI into principal and interest.
-      // A credit card 'income' transaction represents a purchase, increasing the negative balance.
-      if ((isLoanAccount || isCreditCard) && type === 'expense') {
-        // amount is positive, currentBalance is negative. newBalance moves closer to 0.
+      
+      if (type) { // Logic for income/expense
+        if (isLoanAccount || isCreditCard) {
+          // For liability accounts, "expense" is a payment that reduces liability (adds to balance),
+          // and "income" is a purchase/drawdown that increases liability (subtracts from balance).
+          if (type === 'expense') {
+            newBalance = currentBalance + amount; // e.g., -5000 + 1000 = -4000
+          } else if (type === 'income') {
+            newBalance = currentBalance - amount; // e.g., -5000 - 1000 = -6000
+          }
+        } else if (type === 'income') {
+          newBalance = currentBalance + amount;
+        } else if (type === 'expense' || type === 'investment') {
+          newBalance = currentBalance - amount;
+        }
+      } else { // Simplified logic for transfers where amount is already signed
         newBalance = currentBalance + amount;
-      } else if (type === 'income') {
-        newBalance = currentBalance + amount;
-      } else if (type === 'expense') {
-        newBalance = currentBalance - amount;
-      } else if (type === 'investment') {
-        newBalance = currentBalance - amount;
       }
 
       await updateDoc(accountRef, {
@@ -728,6 +779,7 @@ export async function getTransactionsByCategory(
         type: data.type,
         category: data.category,
         subcategory: data.subcategory,
+        toAccountId: data.toAccountId,
         description: decryptedData.description,
         merchant: decryptedData.merchant,
         accountId: data.accountId,
